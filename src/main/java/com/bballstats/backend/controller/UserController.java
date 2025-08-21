@@ -1,7 +1,7 @@
 package com.bballstats.backend.controller;
 
 import com.bballstats.backend.model.User;
-import com.bballstats.backend.repository.UserRepository;
+import com.bballstats.backend.service.UserService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -11,12 +11,12 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/users")
-@CrossOrigin(origins = "http://localhost:4200") // Angular lokalno
+@CrossOrigin(origins = "http://localhost:4200")
 public class UserController {
 
-    private final UserRepository users;
+    private final UserService users;
 
-    public UserController(UserRepository users) {
+    public UserController(UserService users) {
         this.users = users;
     }
 
@@ -34,29 +34,20 @@ public class UserController {
 
     @PostMapping
     public ResponseEntity<User> create(@Valid @RequestBody User user) {
-        User saved = users.save(user);
+        User saved = users.create(user);
         return ResponseEntity.created(URI.create("/api/users/" + saved.getId())).body(saved);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<User> update(@PathVariable Long id, @Valid @RequestBody User user) {
+        return users.update(id, user)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        if (!users.existsById(id)) return ResponseEntity.notFound().build();
-        users.deleteById(id);
-        return ResponseEntity.noContent().build();
+        return users.delete(id) ? ResponseEntity.noContent().build()
+                : ResponseEntity.notFound().build();
     }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<User> update(@PathVariable Long id, @Valid @RequestBody User req) {
-        return users.findById(id)
-                .map(u -> {
-                    u.setUsername(req.getUsername());
-                    u.setEmail(req.getEmail());
-                    u.setPasswordHash(req.getPasswordHash()); // privremeno plain; hash ćemo kasnije
-                    u.setRole(req.getRole());
-                    User saved = users.save(u);
-                    return ResponseEntity.ok(saved);
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
 }

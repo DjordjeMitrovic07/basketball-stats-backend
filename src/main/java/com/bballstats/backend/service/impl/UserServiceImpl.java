@@ -3,21 +3,19 @@ package com.bballstats.backend.service.impl;
 import com.bballstats.backend.model.User;
 import com.bballstats.backend.repository.UserRepository;
 import com.bballstats.backend.service.UserService;
-import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 
 @Service
-@Transactional
+@RequiredArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository repo;
-
-    public UserServiceImpl(UserRepository repo) {
-        this.repo = repo;
-    }
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public List<User> findAll() {
@@ -31,6 +29,9 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User create(User user) {
+        if (user.getPassword() != null && !user.getPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         return repo.save(user);
     }
 
@@ -39,8 +40,13 @@ public class UserServiceImpl implements UserService {
         return repo.findById(id).map(existing -> {
             existing.setUsername(updated.getUsername());
             existing.setEmail(updated.getEmail());
-            existing.setPasswordHash(updated.getPasswordHash());
-            existing.setRole(updated.getRole());
+
+            if (updated.getPassword() != null && !updated.getPassword().isBlank()) {
+                existing.setPassword(passwordEncoder.encode(updated.getPassword()));
+            }
+            if (updated.getRole() != null) {
+                existing.setRole(updated.getRole());
+            }
             return repo.save(existing);
         });
     }

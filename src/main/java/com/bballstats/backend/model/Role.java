@@ -1,4 +1,5 @@
 package com.bballstats.backend.model;
 
-public class Role {
+public enum Role {
+    USER, ADMIN
 }

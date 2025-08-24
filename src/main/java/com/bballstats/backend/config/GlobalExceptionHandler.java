@@ -49,6 +49,27 @@ public class GlobalExceptionHandler {
         ));
     }
 
+    // 401 kad su kredencijali loši
+    @org.springframework.web.bind.annotation.ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.UNAUTHORIZED)
+    public java.util.Map<String, Object> handleBadCredentials(Exception ex) {
+        return java.util.Map.of(
+                "error", "UNAUTHORIZED",
+                "message", "Bad credentials"
+        );
+    }
+
+    // (opciono) 401 i za slučaj da username/email ne postoji
+    @org.springframework.web.bind.annotation.ExceptionHandler(org.springframework.security.core.userdetails.UsernameNotFoundException.class)
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.UNAUTHORIZED)
+    public java.util.Map<String, Object> handleUserNotFound(Exception ex) {
+        return java.util.Map.of(
+                "error", "UNAUTHORIZED",
+                "message", "Bad credentials"
+        );
+    }
+
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleOther(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(

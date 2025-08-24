@@ -5,7 +5,13 @@ import jakarta.validation.constraints.*;
 import lombok.*;
 
 @Entity
-@Table(name = "users") // izbegavamo reserved keyword "user"
+@Table(
+        name = "users",
+        uniqueConstraints = {
+                @UniqueConstraint(columnNames = {"username"}),
+                @UniqueConstraint(columnNames = {"email"})
+        }
+)
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class User {
 
@@ -21,13 +27,12 @@ public class User {
     @Column(nullable = false, unique = true, length = 100)
     private String email;
 
+    // BCrypt hash će se čuvati ovde (nije plain tekst)
     @NotBlank
-    @Column(nullable = false, length = 255)
-    private String passwordHash; // hash ćemo uvesti kasnije; za sad plain vrednost
+    @Column(name = "password", nullable = false, length = 255)
+    private String password;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
-    private Role role = Role.USER; // default vrednost
-
-    public enum Role { USER, ADMIN }
+    private Role role = Role.USER; // default
 }

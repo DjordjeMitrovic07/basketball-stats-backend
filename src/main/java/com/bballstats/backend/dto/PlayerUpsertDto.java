@@ -1,39 +1,16 @@
 package com.bballstats.backend.dto;
 
-import com.bballstats.backend.entity.Player;
-import com.bballstats.backend.entity.Team;
-
-public class PlayerDto {
-    private Long id;
+// Minimalni DTO za create/update (String position, brojni teamId)
+public class PlayerUpsertDto {
     private String firstName;
     private String lastName;
-    private String position;     // String u DTO-u radi jednostavnijeg fronta
+    private String position;     // npr. "PF", "SG"...
     private Integer jerseyNumber;
     private Integer heightCm;
     private Integer weightKg;
     private Long teamId;
-    private String teamName;
-
-    public static PlayerDto from(Player p) {
-        PlayerDto dto = new PlayerDto();
-        dto.setId(p.getId());
-        dto.setFirstName(p.getFirstName());
-        dto.setLastName(p.getLastName());
-        dto.setPosition(p.getPosition() != null ? p.getPosition().name() : null);
-        dto.setJerseyNumber(p.getJerseyNumber());
-        dto.setHeightCm(p.getHeightCm());
-        dto.setWeightKg(p.getWeightKg());
-        Team t = p.getTeam();
-        if (t != null) {
-            dto.setTeamId(t.getId());
-            dto.setTeamName(t.getName());
-        }
-        return dto;
-    }
 
     // --- getters/setters ---
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
     public String getFirstName() { return firstName; }
     public void setFirstName(String firstName) { this.firstName = firstName; }
     public String getLastName() { return lastName; }
@@ -48,6 +25,4 @@ public class PlayerDto {
     public void setWeightKg(Integer weightKg) { this.weightKg = weightKg; }
     public Long getTeamId() { return teamId; }
     public void setTeamId(Long teamId) { this.teamId = teamId; }
-    public String getTeamName() { return teamName; }
-    public void setTeamName(String teamName) { this.teamName = teamName; }
 }

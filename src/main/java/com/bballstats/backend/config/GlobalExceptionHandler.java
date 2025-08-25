@@ -2,10 +2,14 @@ package com.bballstats.backend.config;
 
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.validation.ConstraintViolationException;
+import org.springframework.core.NestedExceptionUtils;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -50,25 +54,46 @@ public class GlobalExceptionHandler {
     }
 
     // 401 kad su kredencijali loši
-    @org.springframework.web.bind.annotation.ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
-    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.UNAUTHORIZED)
-    public java.util.Map<String, Object> handleBadCredentials(Exception ex) {
-        return java.util.Map.of(
+    @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, Object> handleBadCredentials(Exception ex) {
+        return Map.of(
                 "error", "UNAUTHORIZED",
                 "message", "Bad credentials"
         );
     }
 
     // (opciono) 401 i za slučaj da username/email ne postoji
-    @org.springframework.web.bind.annotation.ExceptionHandler(org.springframework.security.core.userdetails.UsernameNotFoundException.class)
-    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.UNAUTHORIZED)
-    public java.util.Map<String, Object> handleUserNotFound(Exception ex) {
-        return java.util.Map.of(
+    @ExceptionHandler(org.springframework.security.core.userdetails.UsernameNotFoundException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, Object> handleUserNotFound(Exception ex) {
+        return Map.of(
                 "error", "UNAUTHORIZED",
                 "message", "Bad credentials"
         );
     }
 
+    // ✅ JEDAN handler za DataIntegrityViolationException (nema duplikata)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    @ResponseStatus(HttpStatus.CONFLICT)
+    public Map<String, String> handleDataIntegrity(DataIntegrityViolationException ex) {
+        // uzmi "root cause" poruku iz baze (MySQL)
+        Throwable root = NestedExceptionUtils.getMostSpecificCause(ex);
+        String raw = (root != null && root.getMessage() != null) ? root.getMessage() : ex.getMessage();
+        String msg = raw != null ? raw.toLowerCase() : "";
+
+        String message;
+        // prepoznaj FK slučaj (npr. fk_boxscore_player, box_scores, foreign key, references…)
+        if (msg.contains("foreign key") || msg.contains("references")
+                || msg.contains("fk_boxscore_player") || msg.contains("box_scores")) {
+            message = "Player cannot be deleted because he has related box scores.";
+        } else if (msg.contains("duplicate") || msg.contains("unique")) {
+            message = "Duplicate value (constraint violation).";
+        } else {
+            message = "Operation not allowed due to related records (constraints).";
+        }
+        return Map.of("message", message);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<?> handleOther(Exception ex) {

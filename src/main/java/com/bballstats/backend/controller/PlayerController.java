@@ -1,11 +1,11 @@
 package com.bballstats.backend.controller;
 
 import com.bballstats.backend.dto.PlayerDto;
-import com.bballstats.backend.dto.PlayerUpdateDto;
+import com.bballstats.backend.dto.PlayerUpsertDto;
 import com.bballstats.backend.entity.Player;
+import com.bballstats.backend.entity.Position;
 import com.bballstats.backend.entity.Team;
 import com.bballstats.backend.service.PlayerService;
-import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -46,26 +46,36 @@ public class PlayerController {
     }
 
     @PostMapping
-    public PlayerDto create(@Valid @RequestBody Player player) {
-        // Za kreiranje ostavljamo @Valid – zahtevamo sva obavezna polja
-        return PlayerDto.from(service.create(player));
+    public PlayerDto create(@RequestBody PlayerUpsertDto dto) {
+        Player p = new Player();
+
+        if (dto.getFirstName() != null) p.setFirstName(dto.getFirstName());
+        if (dto.getLastName() != null)  p.setLastName(dto.getLastName());
+        if (dto.getPosition() != null)  p.setPosition(Position.valueOf(dto.getPosition()));
+        if (dto.getJerseyNumber() != null) p.setJerseyNumber(dto.getJerseyNumber());
+        if (dto.getHeightCm() != null)  p.setHeightCm(dto.getHeightCm());
+        if (dto.getWeightKg() != null)  p.setWeightKg(dto.getWeightKg());
+
+        if (dto.getTeamId() != null) {
+            Team t = new Team();
+            t.setId(dto.getTeamId());
+            p.setTeam(t);
+        }
+
+        return PlayerDto.from(service.create(p));
     }
 
     @PutMapping("/{id}")
-    public PlayerDto update(@PathVariable Long id, @RequestBody PlayerUpdateDto dto) {
-        // Partial update: pripremimo "patch" entitet samo sa prosleđenim poljima
+    public PlayerDto update(@PathVariable Long id, @RequestBody PlayerUpsertDto dto) {
         Player patch = new Player();
 
-        // Osnovna polja (samo ako su prosleđena)
         if (dto.getFirstName() != null) patch.setFirstName(dto.getFirstName());
         if (dto.getLastName() != null)  patch.setLastName(dto.getLastName());
-        if (dto.getPosition() != null)  patch.setPosition(dto.getPosition());
+        if (dto.getPosition() != null)  patch.setPosition(Position.valueOf(dto.getPosition()));
         if (dto.getJerseyNumber() != null) patch.setJerseyNumber(dto.getJerseyNumber());
-        if (dto.getBirthDate() != null) patch.setBirthDate(dto.getBirthDate());
         if (dto.getHeightCm() != null)  patch.setHeightCm(dto.getHeightCm());
         if (dto.getWeightKg() != null)  patch.setWeightKg(dto.getWeightKg());
 
-        // Promena tima – koristimo samo ID referencu
         if (dto.getTeamId() != null) {
             Team t = new Team();
             t.setId(dto.getTeamId());

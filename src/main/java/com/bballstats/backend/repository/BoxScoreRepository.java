@@ -13,19 +13,19 @@ import java.util.Optional;
 
 public interface BoxScoreRepository extends JpaRepository<BoxScore, Long> {
 
-    @EntityGraph(attributePaths = {"player", "player.team", "game", "game.homeTeam", "game.awayTeam"})
+    @EntityGraph(attributePaths = {"player","player.team","game","game.homeTeam","game.awayTeam"})
     Page<BoxScore> findByGame_Id(Long gameId, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"player", "player.team", "game"})
+    @EntityGraph(attributePaths = {"player","player.team","game"})
     Page<BoxScore> findByPlayer_Id(Long playerId, Pageable pageable);
 
     boolean existsByGame_IdAndPlayer_Id(Long gameId, Long playerId);
+    boolean existsByPlayer_Id(Long playerId);   // <— koristimo u servisu
 
-    // Ostavljamo i ovu varijantu zbog drugih poziva
-    @EntityGraph(attributePaths = {"player", "player.team", "game", "game.homeTeam", "game.awayTeam"})
+    @EntityGraph(attributePaths = {"player","player.team","game","game.homeTeam","game.awayTeam"})
     Optional<BoxScore> findById(Long id);
 
-    // 🔴 KLJUČNO: Single-row reload sa eksplicitnim JOIN FETCH da sigurno imamo player.firstName/lastName
+    // Single-row detaljno učitavanje (player/team + game/home/away)
     @Query("""
            select b from BoxScore b
              join fetch b.player p
@@ -40,9 +40,7 @@ public interface BoxScoreRepository extends JpaRepository<BoxScore, Long> {
     @EntityGraph(attributePaths = {"player","player.team","game","game.homeTeam","game.awayTeam"})
     Page<BoxScore> findAllBy(Pageable pageable);
 
-    // ====== DODATO ZA METRIKE (bez lomljenja postojećeg) ======
-
-    // Svi box-score-ovi igrača uz opcioni filter po sezoni (sezona je na Game entitetu)
+    // Za metrike (opciono filter po sezoni)
     @Query("""
            select b from BoxScore b
              join b.game g
@@ -52,7 +50,7 @@ public interface BoxScoreRepository extends JpaRepository<BoxScore, Long> {
     List<BoxScore> findByPlayerIdAndSeason(@Param("playerId") Long playerId,
                                            @Param("season") String season);
 
-    // Box-score-ovi jednog tima na konkretnoj utakmici (tim ide preko player.team.id)
+    // Box-score-ovi tima na konkretnoj utakmici
     @Query("""
            select b from BoxScore b
            where b.game.id = :gameId and b.player.team.id = :teamId
@@ -60,6 +58,7 @@ public interface BoxScoreRepository extends JpaRepository<BoxScore, Long> {
     List<BoxScore> findByGameIdAndTeamId(@Param("gameId") Long gameId,
                                          @Param("teamId") Long teamId);
 
-    // (Opciono korisno) — svi box-score-ovi igrača bez filtera po sezoni
-    List<BoxScore> findByPlayerId(Long playerId);
+    // Ako negde već koristiš “findByPlayerId”, ostavljamo i ovu varijantu
+    @Query("select b from BoxScore b where b.player.id = :playerId")
+    List<BoxScore> findByPlayerId(@Param("playerId") Long playerId);
 }

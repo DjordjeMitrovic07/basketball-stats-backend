@@ -1,6 +1,7 @@
 package com.bballstats.backend.service.impl;
 
 import com.bballstats.backend.entity.Player;
+import com.bballstats.backend.repository.BoxScoreRepository;
 import com.bballstats.backend.repository.PlayerRepository;
 import com.bballstats.backend.service.PlayerService;
 import jakarta.persistence.EntityNotFoundException;
@@ -15,20 +16,24 @@ import org.springframework.transaction.annotation.Transactional;
 public class PlayerServiceImpl implements PlayerService {
 
     private final PlayerRepository repo;
+    private final BoxScoreRepository boxScoreRepo;
 
-    public PlayerServiceImpl(PlayerRepository repo) {
+    public PlayerServiceImpl(PlayerRepository repo, BoxScoreRepository boxScoreRepo) {
         this.repo = repo;
+        this.boxScoreRepo = boxScoreRepo;
     }
 
     @Override
     public Player create(Player player) {
-        if (repo.existsByTeam_IdAndJerseyNumber(
-                player.getTeam().getId(), player.getJerseyNumber())) {
+        if (player.getTeam() != null
+                && player.getTeam().getId() != null
+                && player.getJerseyNumber() != null
+                && repo.existsByTeam_IdAndJerseyNumber(player.getTeam().getId(), player.getJerseyNumber())) {
             throw new IllegalArgumentException("Jersey number already used in this team");
         }
+
         try {
             Player saved = repo.save(player);
-            // VAŽNO: ponovo učitaj sa @EntityGraph (team učitan)
             return repo.findById(saved.getId()).orElse(saved);
         } catch (DataIntegrityViolationException ex) {
             throw new IllegalArgumentException("Invalid foreign key or duplicate constraint");
@@ -37,27 +42,35 @@ public class PlayerServiceImpl implements PlayerService {
 
     @Override
     public Player update(Long id, Player patch) {
-        Player existing = repo.findById(id).orElseThrow(() ->
-                new EntityNotFoundException("Player not found: id=" + id));
+        Player existing = repo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Player not found: id=" + id));
 
         if (patch.getFirstName() != null) existing.setFirstName(patch.getFirstName());
-        if (patch.getLastName() != null)  existing.setLastName(patch.getLastName());
-        if (patch.getPosition() != null)  existing.setPosition(patch.getPosition());
+        if (patch.getLastName()  != null) existing.setLastName(patch.getLastName());
+        if (patch.getPosition()  != null) existing.setPosition(patch.getPosition());
+        if (patch.getBirthDate() != null) existing.setBirthDate(patch.getBirthDate());
+        if (patch.getHeightCm()  != null) existing.setHeightCm(patch.getHeightCm());
+        if (patch.getWeightKg()  != null) existing.setWeightKg(patch.getWeightKg());
+
+        if (patch.getTeam() != null) {
+            existing.setTeam(patch.getTeam());
+        }
+
         if (patch.getJerseyNumber() != null) {
-            Long teamId = (patch.getTeam() != null ? patch.getTeam().getId() : existing.getTeam().getId());
-            if (!patch.getJerseyNumber().equals(existing.getJerseyNumber())
-                    && repo.existsByTeam_IdAndJerseyNumber(teamId, patch.getJerseyNumber())) {
+            Integer newJersey = patch.getJerseyNumber();
+            Long targetTeamId = (patch.getTeam() != null && patch.getTeam().getId() != null)
+                    ? patch.getTeam().getId()
+                    : (existing.getTeam() != null ? existing.getTeam().getId() : null);
+
+            if (targetTeamId != null
+                    && !newJersey.equals(existing.getJerseyNumber())
+                    && repo.existsByTeam_IdAndJerseyNumber(targetTeamId, newJersey)) {
                 throw new IllegalArgumentException("Jersey number already used in this team");
             }
-            existing.setJerseyNumber(patch.getJerseyNumber());
+            existing.setJerseyNumber(newJersey);
         }
-        if (patch.getTeam() != null) existing.setTeam(patch.getTeam());
-        if (patch.getBirthDate() != null) existing.setBirthDate(patch.getBirthDate());
-        if (patch.getHeightCm() != null)  existing.setHeightCm(patch.getHeightCm());
-        if (patch.getWeightKg() != null)  existing.setWeightKg(patch.getWeightKg());
 
         Player saved = repo.save(existing);
-        // vrati ponovo učitanog sa team-om
         return repo.findById(saved.getId()).orElse(saved);
     }
 
@@ -66,13 +79,17 @@ public class PlayerServiceImpl implements PlayerService {
         if (!repo.existsById(id)) {
             throw new EntityNotFoundException("Player not found: id=" + id);
         }
+        // zaštita: ne dozvoli brisanje igrača koji ima box-score zapise
+        if (boxScoreRepo.existsByPlayer_Id(id)) {
+            throw new IllegalStateException("Cannot delete player with existing box scores");
+        }
         repo.deleteById(id);
     }
 
     @Override @Transactional(readOnly = true)
     public Player findById(Long id) {
-        return repo.findById(id).orElseThrow(() ->
-                new EntityNotFoundException("Player not found: id=" + id));
+        return repo.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Player not found: id=" + id));
     }
 
     @Override @Transactional(readOnly = true)

@@ -25,6 +25,11 @@ public class Team {
     @Max(value = 2100, message = "Founded year must be <= 2100")
     private Integer foundedYear;
 
+    /** Kratak kod (lal, bc, gsw...), jedinstven. */
+    @Size(max = 16, message = "Code max length is 16")
+    @Column(length = 16, unique = true)
+    private String code;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -54,6 +59,9 @@ public class Team {
 
     public Integer getFoundedYear() { return foundedYear; }
     public void setFoundedYear(Integer foundedYear) { this.foundedYear = foundedYear; }
+
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

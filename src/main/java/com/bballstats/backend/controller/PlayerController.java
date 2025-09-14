@@ -11,6 +11,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/players")
 @CrossOrigin(origins = "http://localhost:4200")
@@ -27,7 +29,8 @@ public class PlayerController {
             @RequestParam(required = false) Long teamId,
             @RequestParam(required = false, name = "q") String query,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            // PODIGNUTO sa 10 → 1000
+            @RequestParam(defaultValue = "1000") int size,
             @RequestParam(defaultValue = "lastName,asc") String sort
     ) {
         String[] parts = sort.split(",");
@@ -38,6 +41,25 @@ public class PlayerController {
         return service
                 .findAll(teamId, query, PageRequest.of(page, size, Sort.by(dir, field)))
                 .map(PlayerDto::from);
+    }
+
+    // Novi endpoint: vrati sve igrače (bez paginacije)
+    @GetMapping("/all")
+    public List<PlayerDto> listAll(
+            @RequestParam(required = false) Long teamId,
+            @RequestParam(required = false, name = "q") String query,
+            @RequestParam(defaultValue = "lastName,asc") String sort,
+            @RequestParam(defaultValue = "1000") int size
+    ) {
+        String[] parts = sort.split(",");
+        String field = parts[0];
+        Sort.Direction dir = (parts.length > 1 && "desc".equalsIgnoreCase(parts[1]))
+                ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+        return service
+                .findAll(teamId, query, PageRequest.of(0, size, Sort.by(dir, field)))
+                .map(PlayerDto::from)
+                .getContent();
     }
 
     @GetMapping("/{id}")

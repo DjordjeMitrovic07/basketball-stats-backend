@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -40,4 +41,8 @@ public interface GameRepository extends JpaRepository<Game, Long> {
            """)
     List<Game> findByTeamAndSeason(@Param("teamId") Long teamId,
                                    @Param("season") String season);
+
+    Page<Game> findBySeason(String season, Pageable pageable);
+    List<Game> findBySeason(String season, Sort sort);
+
 }

@@ -7,15 +7,22 @@ public class TeamDto {
     private String name;
     private String city;
     private Integer foundedYear;
+    private String code; // NEW
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
     public String getCity() { return city; }
     public void setCity(String city) { this.city = city; }
+
     public Integer getFoundedYear() { return foundedYear; }
     public void setFoundedYear(Integer foundedYear) { this.foundedYear = foundedYear; }
+
+    public String getCode() { return code; }
+    public void setCode(String code) { this.code = code; }
 
     public static TeamDto from(Team t) {
         if (t == null) return null;
@@ -24,6 +31,7 @@ public class TeamDto {
         dto.setName(t.getName());
         dto.setCity(t.getCity());
         dto.setFoundedYear(t.getFoundedYear());
+        dto.setCode(t.getCode()); // NEW
         return dto;
     }
 }

@@ -11,4 +11,5 @@ public interface MetricsService {
 
     List<LeaderDto> getLeaders(String season, String metric, int n, Integer minGames, Integer minMinutesPerGame);
     List<PlayerCompareDto> comparePlayers(List<Long> playerIds, String season);
+    List<TeamLeaderDto> getTeamLeaders(String season, String metric, int n, Integer minGames);
 }

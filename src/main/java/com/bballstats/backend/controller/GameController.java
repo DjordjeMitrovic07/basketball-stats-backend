@@ -16,6 +16,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/games")
@@ -57,7 +58,9 @@ public class GameController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            // PODIGNUTO sa 10 → 1000
+            @RequestParam(defaultValue = "1000") int size,
+            // default sort po datumu DESC
             @RequestParam(defaultValue = "dateTime,desc") String sort
     ) {
         String[] parts = sort.split(",");
@@ -67,6 +70,25 @@ public class GameController {
 
         return service.findAll(teamId, from, to, PageRequest.of(page, size, Sort.by(dir, field)))
                 .map(g -> hydrateTeams(GameDto.from(g)));
+    }
+
+    // Novi endpoint: sve utakmice (bez paginacije) sa istim filterima
+    @GetMapping("/all")
+    public List<GameDto> listAll(
+            @RequestParam(required = false) Long teamId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(defaultValue = "dateTime,desc") String sort,
+            @RequestParam(defaultValue = "1000") int size
+    ) {
+        String[] parts = sort.split(",");
+        String field = parts[0];
+        Sort.Direction dir = (parts.length > 1 && "desc".equalsIgnoreCase(parts[1]))
+                ? Sort.Direction.DESC : Sort.Direction.ASC;
+
+        return service.findAll(teamId, from, to, PageRequest.of(0, size, Sort.by(dir, field)))
+                .map(g -> hydrateTeams(GameDto.from(g)))
+                .getContent();
     }
 
     @GetMapping("/{id}")

@@ -7,6 +7,7 @@ import com.bballstats.backend.entity.Player;
 import com.bballstats.backend.entity.Team;
 import com.bballstats.backend.repository.BoxScoreRepository;
 import com.bballstats.backend.repository.GameRepository;
+import com.bballstats.backend.repository.MetricsRepository;
 import com.bballstats.backend.repository.PlayerRepository;
 import com.bballstats.backend.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class MetricsServiceImpl implements MetricsService {
     private final GameRepository gameRepo;
     private final TeamRepository teamRepo;
     private final PlayerRepository playerRepo;
+    private final MetricsRepository metricsRepository; // <-- novo
 
     // 40 (FIBA) ili 48 (NBA)
     private final double PERIOD_LENGTH = 40.0;
@@ -201,11 +203,28 @@ public class MetricsServiceImpl implements MetricsService {
             int tpm = sum(bs, BoxScore::getTp3m), tpa = sum(bs, BoxScore::getTp3a);
             int fta = sum(bs, BoxScore::getFta);
             int tov = sum(bs, BoxScore::getTov);
+            int ast = sum(bs, BoxScore::getAst);
+            int reb = sum(bs, BoxScore::getReb);
 
             double value;
-            switch (metric.toLowerCase()){
-                case "ts":  value = ts(pts, fga, fta); break;
-                case "efg": value = efg(fgm, tpm, fga); break;
+            switch (metric.toLowerCase()) {
+                case "apg":
+                    value = safeDiv(ast, Math.max(games, 1));
+                    break;
+                case "rpg":
+                    value = safeDiv(reb, Math.max(games, 1));
+                    break;
+                case "tp3p":
+                    // opciono: minimalni uzorak – bar 1 pokušaj za 3 po meču
+                    if (games > 0 && tpa < Math.max(1, games)) { value = Double.NaN; }
+                    else { value = safeDiv(tpm, tpa); }
+                    break;
+                case "efg":
+                    value = efg(fgm, tpm, fga);
+                    break;
+                case "ts":
+                    value = ts(pts, fga, fta);
+                    break;
                 case "usg":
                     Map<Long, List<BoxScore>> byGame = bs.stream().collect(Collectors.groupingBy(b -> b.getGame().getId()));
                     int teamMinutes=0, teamFga=0, teamFta=0, teamTov=0;
@@ -218,25 +237,66 @@ public class MetricsServiceImpl implements MetricsService {
                     value = usg(fga, fta, tov, minutes, teamFga, teamFta, teamTov, teamMinutes);
                     break;
                 case "pts":
-                default:    value = safeDiv(pts, Math.max(games,1)); // PPG
+                default:
+                    value = safeDiv(pts, Math.max(games, 1)); // PPG
             }
 
             rows.add(LeaderDto.builder()
                     .playerId(p.getId())
-                    .playerName(p.getFirstName() + " " + p.getLastName())
-                    .teamId(p.getTeam().getId())
-                    .teamName(p.getTeam().getName())
-                    .metric(metric.toLowerCase())
+                    .name(p.getFirstName() + " " + p.getLastName())
+                    .teamAbbr(computeTeamAbbr(p.getTeam()))
                     .value(round3(value))
-                    .games(games)
-                    .minPerGame(round1(mpg))
                     .build());
         }
 
         return rows.stream()
+                .filter(dto -> !Double.isNaN(dto.getValue()) && !Double.isInfinite(dto.getValue()))
                 .sorted((a,b) -> Double.compare(b.getValue(), a.getValue()))
-                .limit(n)
+                .limit(n <= 0 ? 5 : n)
                 .collect(Collectors.toList());
+    }
+
+    // NOVO: Team leaderboard
+    @Override
+    public List<TeamLeaderDto> getTeamLeaders(String season, String metric, int n, Integer minGames) {
+        var totals = metricsRepository.fetchTeamTotals(season, minGames);
+        String m = (metric == null ? "pts" : metric.toLowerCase(Locale.ROOT));
+
+        List<TeamLeaderDto> rows = new ArrayList<>();
+        for (var t : totals) {
+            double games = t.getGames() == null ? 0.0 : t.getGames().doubleValue();
+            double pts   = nz(t.getPts());
+            double ast   = nz(t.getAst());
+            double reb   = nz(t.getReb());
+            double fga   = nz(t.getFga());
+            double fgm   = nz(t.getFgm());
+            double tp3a  = nz(t.getTp3a());
+            double tp3m  = nz(t.getTp3m());
+            double fta   = nz(t.getFta());
+
+            double value;
+            switch (m) {
+                case "apg":  value = safeDiv(ast, games); break;
+                case "rpg":  value = safeDiv(reb, games); break;
+                case "efg":  value = safeDiv(fgm + 0.5 * tp3m, fga); break;
+                case "ts":   value = safeDiv(pts, 2 * (fga + 0.44 * fta)); break;
+                case "tp3p": value = safeDiv(tp3m, tp3a); break;
+                case "pts":
+                default:     value = safeDiv(pts, games); // points per game
+            }
+
+            rows.add(TeamLeaderDto.builder()
+                    .teamId(t.getTeamId())
+                    .name(t.getTeamName())
+                    .abbr(computeTeamAbbrName(t.getTeamName()))
+                    .value(round3(value))
+                    .build());
+        }
+
+        return rows.stream()
+                .sorted(Comparator.comparingDouble(TeamLeaderDto::getValue).reversed())
+                .limit(n <= 0 ? 5 : n)
+                .toList();
     }
 
     @Override
@@ -265,4 +325,39 @@ public class MetricsServiceImpl implements MetricsService {
         return s;
     }
     @FunctionalInterface private interface ToInt<T>{ int get(T t); }
+
+    /** Jednostavna heuristika za skraćenicu tima ako nemamo polje u bazi. */
+    private static String computeTeamAbbr(Team t) {
+        if (t == null) return "—";
+        String name = Optional.ofNullable(t.getName()).orElse("").trim();
+        if (name.isEmpty()) return "—";
+        String[] parts = name.split("\\s+");
+        if (parts.length == 1) {
+            String up = parts[0].toUpperCase(Locale.ROOT);
+            return up.length() <= 3 ? up : up.substring(0, 3);
+        }
+        StringBuilder sb = new StringBuilder(3);
+        for (String part : parts) {
+            if (!part.isBlank()) sb.append(Character.toUpperCase(part.charAt(0)));
+            if (sb.length() == 3) break;
+        }
+        return sb.toString();
+    }
+
+    private static double nz(Number n) { return n == null ? 0.0 : n.doubleValue(); }
+
+    private static String computeTeamAbbrName(String name) {
+        if (name == null || name.isBlank()) return "—";
+        String[] parts = name.trim().split("\\s+");
+        if (parts.length == 1) {
+            String up = parts[0].toUpperCase(Locale.ROOT);
+            return up.length() <= 3 ? up : up.substring(0, 3);
+        }
+        StringBuilder sb = new StringBuilder(3);
+        for (String part : parts) {
+            if (!part.isBlank()) sb.append(Character.toUpperCase(part.charAt(0)));
+            if (sb.length()==3) break;
+        }
+        return sb.toString();
+    }
 }

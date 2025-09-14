@@ -2,14 +2,13 @@ package com.bballstats.backend.dto.metrics;
 
 import lombok.*;
 
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter @Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class LeaderDto {
-    private Long playerId;
-    private String playerName;
-    private Long teamId;
-    private String teamName;
-    private String metric;   // npr. "pts" | "ts" | "efg" | "usg"
-    private double value;
-    private int games;
-    private double minPerGame;
+    private Long playerId;   // id igrača
+    private String name;     // puno ime igrača
+    private String teamAbbr; // npr. LAL, BOS, GSW
+    private Double value;    // vrednost metrike (ppg, ts%, ...)
 }
